@@ -60,8 +60,7 @@ def precipitation():
     precps = []
     for result in results:
         column = {}
-        column['date'] = result.date
-        column['prcp'] = result.prcp
+        column[result.date] = result.prcp
         precps.append(column)
     return jsonify(precps)
 
@@ -90,6 +89,9 @@ def temp():
     'retrieving results for temp observations for the last year from the most active station'
     # create session
     session = Session(engine)
+    
+    # last_date_in_df = session.query(Measurement.date).order_by(Measurement.date.desc()).first[0] 
+    yr_from_last = dt.date(2017, 8, 23) - dt.timedelta(days=365)
 
     # #get the most active station
     # most_active = session.query(Measurement.station, func.count(Measurement.station)).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).first()
