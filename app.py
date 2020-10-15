@@ -40,7 +40,7 @@ def home():
         f'Precipitation: /api/v1.0/precipitation<br/>'
         f'Stations: /api/v1.0/stations<br/>'
         f'Temperature Observations: /api/v1.0/tobs<br/>'
-        f'Temperature Stats with a Start - End Date (YYYY-MM-DD): /api/v1.0/temp/<start>/<end><br/>'
+        f'Temperature Stats with a Start - End Date (YYYY-MM-DD): /api/v1.0/temp/<start_input>/<end_input><br/>'
     )
 # Convert the query results to a dictionary using date as the key and prcp as the value.
 @app.route("/api/v1.0/precipitation")
@@ -48,8 +48,12 @@ def precipitation():
     'retrieving results for dates & precipitation values'
     # Create our session (link) from Python to the DB
     session = Session(engine)
+
+    #get the last year info 
+    # last_date_in_df = session.query(Measurement.date).order_by(Measurement.date.desc()).first[0] 
+    yr_from_last = dt.date(2017, 8, 23) - dt.timedelta(days=365)
     
-    results = session.query(Measurement.date, Measurement.prcp).all()
+    results = session.query(Measurement.date, Measurement.prcp).filter(Measurement.date >= yr_from_last).all()
 
     session.close()
     # Convert the query results to a dictionary using date as the key and prcp as the value.
@@ -87,10 +91,6 @@ def temp():
     # create session
     session = Session(engine)
 
-    #get the last year info 
-    # last_date_in_df = session.query(Measurement.date).order_by(Measurement.date.desc()).first[0] 
-    yr_from_last = dt.date(2017, 8, 23) - dt.timedelta(days=365)
-
     # #get the most active station
     # most_active = session.query(Measurement.station, func.count(Measurement.station)).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).first()
 
@@ -115,21 +115,20 @@ def temp():
     # Return the results
     return jsonify(temps=temps)
 
-    #omg this is not working, but i tried it in jupyter lab and it's working - WHAT WHY
-
 @app.route('/api/v1.0/<start_input>')
 @app.route('/api/v1.0/<start_input>/<end_input>')
 # <start_input> 'March-03-20'
 # start_input.split(-) ['March', '03', 20']
 # _[0] Month
-def start(start_input, end_input=None):
+def start(start_input=None, end_input=None):
     'retrieving min, max and average temps for all dates greater than the start date'
     #create session
     # try: 
     # end_date=dt.datetime.strptime(end_input, '%B-%y-%d')
 #     end_input=dt.datetime.strf(end_date, '%Y-%m-%d')
-    end_date=pd.to_datetime(end_input)
-    end_input=end_date.strftime('%Y-%m-%d')
+## ignore this part, will review later## 
+    # end_date=pd.to_datetime(end_input)
+    # end_input=end_date.strftime('%Y-%m-%d')
     #except: 
 
     session = Session(engine)
@@ -137,23 +136,22 @@ def start(start_input, end_input=None):
     if end_input: # if end_input has value. if true, end_input has value
         results=session.query(func.min(Measurement.tobs).label('min'), func.max(Measurement.tobs).label('max'), func.avg(Measurement.tobs).label('average'))
         filtered_results=results.filter(Measurement.date >= start_input).filter(Measurement.date <= end_input).all()
+
     else:  # which means there is not end_input
         results=session.query(func.min(Measurement.tobs).label('min'), func.max(Measurement.tobs).label('max'), func.avg(Measurement.tobs).label('average'))
         filtered_results=results.filter(Measurement.date >= start_input).all()
+
     session.close()
 
     temp_stats_start = []
-    for result in results:
+    for result in filtered_results:
         column = {}
         column['min'] = result.min
         column['max'] = result.max
         column['average'] = result.average
         temp_stats_start.append(column)
-    return jsonify(temps=temp_stats_start)
-    #this isn't working either whyyy
-
-
-
+    # return jsonify(temps=temp_stats_start)
+        return jsonify(temp_stats_start)
 
 if __name__ == '__main__':
     app.run(debug=True)
